@@ -35,6 +35,9 @@ class XboxHidService(private val context: Context) {
     private val _statusMessage = MutableStateFlow("Chưa kết nối")
     val statusMessage: StateFlow<String> = _statusMessage
 
+    /** Callback invoked when the host sends a rumble OUTPUT report. */
+    var onRumble: ((leftMotor: Int, rightMotor: Int) -> Unit)? = null
+
     private val sdpRecord = BluetoothHidDeviceAppSdpSettings(
         BT_DEVICE_NAME,
         SDP_DESCRIPTION,
@@ -78,6 +81,15 @@ class XboxHidService(private val context: Context) {
 
         override fun onGetReport(device: BluetoothDevice, type: Byte, id: Byte, bufferSize: Int) {
             hidDevice?.replyReport(device, type, id, GamepadState().toReport())
+        }
+
+        override fun onSetReport(device: BluetoothDevice, type: Byte, id: Byte, data: ByteArray) {
+            // Rumble output report: bytes [leftMotor, rightMotor], each 0..255.
+            if (data.size >= 2) {
+                val left = data[0].toInt() and 0xFF
+                val right = data[1].toInt() and 0xFF
+                onRumble?.invoke(left, right)
+            }
         }
     }
 

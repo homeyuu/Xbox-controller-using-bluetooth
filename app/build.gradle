@@ -3,6 +3,11 @@ plugins {
     id 'org.jetbrains.kotlin.android'
 }
 
+// Signing config — only active when env vars are set (CI release flow).
+def keystorePath = System.getenv("KEYSTORE_FILE")
+def keystoreFileObj = keystorePath ? file(keystorePath) : null
+def hasKeystore = keystoreFileObj?.exists() == true
+
 android {
     namespace 'dev.sakayori.xboxcontroller'
     compileSdk 34
@@ -13,6 +18,17 @@ android {
         targetSdk 34
         versionCode 1
         versionName "1.0.0"
+    }
+
+    signingConfigs {
+        if (hasKeystore) {
+            release {
+                storeFile keystoreFileObj
+                storePassword System.getenv("KEYSTORE_PASSWORD")
+                keyAlias System.getenv("KEY_ALIAS")
+                keyPassword System.getenv("KEY_PASSWORD")
+            }
+        }
     }
 
     buildFeatures {
@@ -31,6 +47,9 @@ android {
     buildTypes {
         release {
             minifyEnabled false
+            if (hasKeystore) {
+                signingConfig signingConfigs.release
+            }
         }
     }
 }

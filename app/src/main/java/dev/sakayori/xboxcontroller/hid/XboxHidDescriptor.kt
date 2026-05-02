@@ -2,23 +2,40 @@ package dev.sakayori.xboxcontroller.hid
 
 object XboxHidDescriptor {
     val DESCRIPTOR: ByteArray = byteArrayOf(
+        // Usage Page (Generic Desktop), Usage (Game Pad), Collection (Application)
         0x05.toByte(), 0x01.toByte(), 0x09.toByte(), 0x05.toByte(),
-        0xA1.toByte(), 0x01.toByte(), 0x05.toByte(), 0x09.toByte(),
+        0xA1.toByte(), 0x01.toByte(),
+        // 15 buttons + 1 bit padding
+        0x05.toByte(), 0x09.toByte(),
         0x19.toByte(), 0x01.toByte(), 0x29.toByte(), 0x0F.toByte(),
         0x15.toByte(), 0x00.toByte(), 0x25.toByte(), 0x01.toByte(),
         0x75.toByte(), 0x01.toByte(), 0x95.toByte(), 0x0F.toByte(),
-        0x81.toByte(), 0x02.toByte(), 0x75.toByte(), 0x01.toByte(),
-        0x95.toByte(), 0x01.toByte(), 0x81.toByte(), 0x03.toByte(),
-        0x05.toByte(), 0x01.toByte(), 0x09.toByte(), 0x30.toByte(),
-        0x09.toByte(), 0x31.toByte(), 0x09.toByte(), 0x33.toByte(),
-        0x09.toByte(), 0x34.toByte(), 0x16.toByte(), 0x00.toByte(),
-        0x80.toByte(), 0x26.toByte(), 0xFF.toByte(), 0x7F.toByte(),
+        0x81.toByte(), 0x02.toByte(),
+        0x75.toByte(), 0x01.toByte(), 0x95.toByte(), 0x01.toByte(),
+        0x81.toByte(), 0x03.toByte(),
+        // 4 signed 16-bit axes (LX, LY, RX, RY)
+        0x05.toByte(), 0x01.toByte(),
+        0x09.toByte(), 0x30.toByte(), 0x09.toByte(), 0x31.toByte(),
+        0x09.toByte(), 0x33.toByte(), 0x09.toByte(), 0x34.toByte(),
+        0x16.toByte(), 0x00.toByte(), 0x80.toByte(),
+        0x26.toByte(), 0xFF.toByte(), 0x7F.toByte(),
         0x75.toByte(), 0x10.toByte(), 0x95.toByte(), 0x04.toByte(),
-        0x81.toByte(), 0x02.toByte(), 0x09.toByte(), 0x32.toByte(),
-        0x09.toByte(), 0x35.toByte(), 0x15.toByte(), 0x00.toByte(),
-        0x26.toByte(), 0xFF.toByte(), 0x00.toByte(), 0x75.toByte(),
-        0x08.toByte(), 0x95.toByte(), 0x02.toByte(), 0x81.toByte(),
-        0x02.toByte(), 0xC0.toByte()
+        0x81.toByte(), 0x02.toByte(),
+        // 2 unsigned 8-bit triggers (Z=LT, Rz=RT)
+        0x09.toByte(), 0x32.toByte(), 0x09.toByte(), 0x35.toByte(),
+        0x15.toByte(), 0x00.toByte(),
+        0x26.toByte(), 0xFF.toByte(), 0x00.toByte(),
+        0x75.toByte(), 0x08.toByte(), 0x95.toByte(), 0x02.toByte(),
+        0x81.toByte(), 0x02.toByte(),
+        // OUTPUT: 2 vendor bytes for rumble (left motor, right motor) 0..255
+        0x06.toByte(), 0x00.toByte(), 0xFF.toByte(),
+        0x09.toByte(), 0x01.toByte(),
+        0x15.toByte(), 0x00.toByte(),
+        0x26.toByte(), 0xFF.toByte(), 0x00.toByte(),
+        0x75.toByte(), 0x08.toByte(), 0x95.toByte(), 0x02.toByte(),
+        0x91.toByte(), 0x02.toByte(),
+        // End Collection
+        0xC0.toByte()
     )
 
     object Button {
