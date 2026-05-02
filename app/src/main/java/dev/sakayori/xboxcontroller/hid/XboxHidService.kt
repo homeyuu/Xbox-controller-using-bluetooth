@@ -12,15 +12,23 @@ enum class HidConnectionState { IDLE, REGISTERING, WAITING_PAIR, CONNECTED, ERRO
 class XboxHidService(private val context: Context) {
 
     companion object {
-        // Name shown to TV / PC during Bluetooth discovery — must match what
-        // hosts expect for an Xbox Wireless Controller.
         const val BT_DEVICE_NAME = "Xbox Wireless Controller"
         private const val SDP_DESCRIPTION = "Xbox Wireless Controller"
         private const val SDP_PROVIDER = "Microsoft"
+
+        // ── Friendly Vietnamese fallback messages ─────────────────────────
+        private const val MSG_NO_BT          = "Thiết bị này không có Bluetooth"
+        private const val MSG_BT_OFF         = "Bluetooth chưa bật. Mở Bluetooth ở Cài đặt rồi thử lại"
+        private const val MSG_REG_FAILED     = "Không đăng ký được tay cầm. Thử tắt rồi bật lại Bluetooth"
+        private const val MSG_DISCONNECTED   = "TV ngắt kết nối — đang chờ kết nối lại…"
+        private const val MSG_CONNECTING     = "Đang đăng ký tay cầm…"
+        private const val MSG_UNKNOWN_ERROR  = "Lỗi 404 — không rõ. Thử Dừng rồi Bắt đầu lại"
+        private const val MSG_IDLE           = "Sẵn sàng. Nhấn Bắt đầu để mở tay cầm"
     }
 
-    private val btAdapter: BluetoothAdapter? get() =
-        (context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager).adapter
+    private val btAdapter: BluetoothAdapter? get() = runCatching {
+        (context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager)?.adapter
+    }.getOrNull()
 
     private var hidDevice: BluetoothHidDevice? = null
     private var connectedHost: BluetoothDevice? = null
@@ -32,7 +40,7 @@ class XboxHidService(private val context: Context) {
     private val _pairedDevices = MutableStateFlow<List<BluetoothDevice>>(emptyList())
     val pairedDevices: StateFlow<List<BluetoothDevice>> = _pairedDevices
 
-    private val _statusMessage = MutableStateFlow("Chưa kết nối")
+    private val _statusMessage = MutableStateFlow(MSG_IDLE)
     val statusMessage: StateFlow<String> = _statusMessage
 
     /** Callback invoked when the host sends a rumble OUTPUT report. */
@@ -58,7 +66,13 @@ class XboxHidService(private val context: Context) {
                 _statusMessage.value = "Mở Bluetooth trên TV → tìm \"$BT_DEVICE_NAME\" → Pair"
                 refreshPairedDevices()
             } else {
-                _state.value = HidConnectionState.IDLE
+                if (_state.value == HidConnectionState.REGISTERING) {
+                    _state.value = HidConnectionState.ERROR
+                    _statusMessage.value = MSG_REG_FAILED
+                } else {
+                    _state.value = HidConnectionState.IDLE
+                    _statusMessage.value = MSG_IDLE
+                }
             }
         }
 
@@ -67,14 +81,21 @@ class XboxHidService(private val context: Context) {
                 BluetoothProfile.STATE_CONNECTED -> {
                     connectedHost = device
                     _state.value = HidConnectionState.CONNECTED
-                    _statusMessage.value = "Đã kết nối: ${device.name ?: device.address}"
+                    val deviceLabel = device.name?.takeIf { it.isNotBlank() } ?: "TV"
+                    _statusMessage.value = "Đã kết nối với $deviceLabel"
                 }
                 BluetoothProfile.STATE_DISCONNECTED -> {
                     if (connectedHost?.address == device.address) {
                         connectedHost = null
                         _state.value = HidConnectionState.WAITING_PAIR
-                        _statusMessage.value = "TV ngắt kết nối — đang chờ…"
+                        _statusMessage.value = MSG_DISCONNECTED
                     }
+                }
+                BluetoothProfile.STATE_CONNECTING -> {
+                    _statusMessage.value = "Đang kết nối với ${device.name ?: "TV"}…"
+                }
+                BluetoothProfile.STATE_DISCONNECTING -> {
+                    _statusMessage.value = "Đang ngắt kết nối…"
                 }
             }
         }
@@ -84,7 +105,6 @@ class XboxHidService(private val context: Context) {
         }
 
         override fun onSetReport(device: BluetoothDevice, type: Byte, id: Byte, data: ByteArray) {
-            // Rumble output report: bytes [leftMotor, rightMotor], each 0..255.
             if (data.size >= 2) {
                 val left = data[0].toInt() and 0xFF
                 val right = data[1].toInt() and 0xFF
@@ -95,23 +115,34 @@ class XboxHidService(private val context: Context) {
 
     private val profileListener = object : BluetoothProfile.ServiceListener {
         override fun onServiceConnected(profile: Int, proxy: BluetoothProfile) {
-            hidDevice = proxy as BluetoothHidDevice
-            applySpoofedAdapterName()
-            hidDevice?.registerApp(sdpRecord, null, qosOut, { it.run() }, hidCallback)
-            _state.value = HidConnectionState.REGISTERING
-            _statusMessage.value = "Đang đăng ký HID profile…"
+            try {
+                hidDevice = proxy as BluetoothHidDevice
+                applySpoofedAdapterName()
+                val ok = hidDevice?.registerApp(sdpRecord, null, qosOut, { it.run() }, hidCallback) == true
+                if (!ok) {
+                    _state.value = HidConnectionState.ERROR
+                    _statusMessage.value = MSG_REG_FAILED
+                } else {
+                    _state.value = HidConnectionState.REGISTERING
+                    _statusMessage.value = MSG_CONNECTING
+                }
+            } catch (_: Throwable) {
+                _state.value = HidConnectionState.ERROR
+                _statusMessage.value = MSG_UNKNOWN_ERROR
+            }
         }
         override fun onServiceDisconnected(profile: Int) {
             hidDevice = null
             _state.value = HidConnectionState.IDLE
+            _statusMessage.value = MSG_IDLE
         }
     }
 
     private fun applySpoofedAdapterName() {
         val adapter = btAdapter ?: return
-        if (originalAdapterName == null) originalAdapterName = adapter.name
-        if (adapter.name != BT_DEVICE_NAME) {
-            runCatching { adapter.name = BT_DEVICE_NAME }
+        runCatching {
+            if (originalAdapterName == null) originalAdapterName = adapter.name
+            if (adapter.name != BT_DEVICE_NAME) adapter.name = BT_DEVICE_NAME
         }
     }
 
@@ -123,27 +154,60 @@ class XboxHidService(private val context: Context) {
     }
 
     fun start() {
-        if (_state.value != HidConnectionState.IDLE) return
-        if (btAdapter == null) {
+        if (_state.value != HidConnectionState.IDLE && _state.value != HidConnectionState.ERROR) return
+        val adapter = btAdapter
+        if (adapter == null) {
             _state.value = HidConnectionState.ERROR
-            _statusMessage.value = "Thiết bị không hỗ trợ Bluetooth"
+            _statusMessage.value = MSG_NO_BT
             return
         }
-        btAdapter?.getProfileProxy(context, profileListener, BluetoothProfile.HID_DEVICE)
-        _state.value = HidConnectionState.REGISTERING
+        if (!adapter.isEnabled) {
+            _state.value = HidConnectionState.ERROR
+            _statusMessage.value = MSG_BT_OFF
+            return
+        }
+        try {
+            val ok = adapter.getProfileProxy(context, profileListener, BluetoothProfile.HID_DEVICE)
+            if (!ok) {
+                _state.value = HidConnectionState.ERROR
+                _statusMessage.value = MSG_REG_FAILED
+                return
+            }
+            _state.value = HidConnectionState.REGISTERING
+            _statusMessage.value = MSG_CONNECTING
+        } catch (_: Throwable) {
+            _state.value = HidConnectionState.ERROR
+            _statusMessage.value = MSG_UNKNOWN_ERROR
+        }
     }
 
     fun stop() {
-        hidDevice?.unregisterApp()
-        btAdapter?.closeProfileProxy(BluetoothProfile.HID_DEVICE, hidDevice)
-        hidDevice = null; connectedHost = null
+        runCatching { hidDevice?.unregisterApp() }
+        runCatching { btAdapter?.closeProfileProxy(BluetoothProfile.HID_DEVICE, hidDevice) }
+        hidDevice = null
+        connectedHost = null
         restoreAdapterName()
         _state.value = HidConnectionState.IDLE
+        _statusMessage.value = MSG_IDLE
     }
 
-    fun connectTo(device: BluetoothDevice) { hidDevice?.connect(device) }
-    fun disconnect() { connectedHost?.let { hidDevice?.disconnect(it) } }
-    fun sendReport(state: GamepadState) { connectedHost?.let { hidDevice?.sendReport(it, 0, state.toReport()) } }
-    fun refreshPairedDevices() { _pairedDevices.value = btAdapter?.bondedDevices?.toList() ?: emptyList() }
+    fun connectTo(device: BluetoothDevice) {
+        runCatching { hidDevice?.connect(device) }
+    }
+
+    fun disconnect() {
+        connectedHost?.let { runCatching { hidDevice?.disconnect(it) } }
+    }
+
+    fun sendReport(state: GamepadState) {
+        val host = connectedHost ?: return
+        val dev = hidDevice ?: return
+        runCatching { dev.sendReport(host, 0, state.toReport()) }
+    }
+
+    fun refreshPairedDevices() {
+        _pairedDevices.value = runCatching { btAdapter?.bondedDevices?.toList() }.getOrNull() ?: emptyList()
+    }
+
     fun isBluetoothEnabled(): Boolean = btAdapter?.isEnabled == true
 }

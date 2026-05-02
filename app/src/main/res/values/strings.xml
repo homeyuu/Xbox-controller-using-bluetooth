@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Xbox Wireless Controller</string>
+    <string name="notif_starting">Đang khởi động tay cầm…</string>
+    <string name="notif_stop_action">Dừng</string>
 </resources>

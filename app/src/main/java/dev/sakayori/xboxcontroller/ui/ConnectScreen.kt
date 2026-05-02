@@ -165,24 +165,47 @@ fun ConnectScreen(
             // ── Action buttons ──────────────────────────────────────────────
             Spacer(Modifier.height(4.dp))
 
-            if (state == HidConnectionState.IDLE) {
-                Button(
-                    onClick = onStart,
-                    modifier = Modifier.fillMaxWidth().height(52.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = XboxColors.AccentGreen)
-                ) {
-                    Text("Bắt đầu — Bật BT HID", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+            when (state) {
+                HidConnectionState.IDLE -> {
+                    Button(
+                        onClick = onStart,
+                        modifier = Modifier.fillMaxWidth().height(52.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = XboxColors.AccentGreen)
+                    ) {
+                        Text("Bắt đầu — Bật BT HID", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    }
                 }
-            } else {
-                OutlinedButton(
-                    onClick = onStop,
-                    modifier = Modifier.fillMaxWidth().height(48.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = XboxColors.Danger),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, XboxColors.Danger)
-                ) {
-                    Text("Dừng & ngắt kết nối", fontWeight = FontWeight.Bold)
+                HidConnectionState.ERROR -> {
+                    Button(
+                        onClick = { onStop(); onStart() },
+                        modifier = Modifier.fillMaxWidth().height(52.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = XboxColors.AccentGreen)
+                    ) {
+                        Text("Thử lại", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = onStop,
+                        modifier = Modifier.fillMaxWidth().height(44.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = XboxColors.TextMuted),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, XboxColors.Border)
+                    ) {
+                        Text("Đóng", fontSize = 13.sp)
+                    }
+                }
+                else -> {
+                    OutlinedButton(
+                        onClick = onStop,
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = XboxColors.Danger),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, XboxColors.Danger)
+                    ) {
+                        Text("Dừng & ngắt kết nối", fontWeight = FontWeight.Bold)
+                    }
                 }
             }
         }

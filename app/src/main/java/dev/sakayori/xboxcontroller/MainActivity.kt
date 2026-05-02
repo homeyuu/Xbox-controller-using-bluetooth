@@ -9,11 +9,23 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
-import androidx.compose.animation.*
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.material3.Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
@@ -32,16 +44,26 @@ class MainActivity : ComponentActivity() {
 
     private val vm: ControllerViewModel by viewModels()
 
-    private val permissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
-        arrayOf(Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_ADVERTISE)
-    else
-        arrayOf(Manifest.permission.BLUETOOTH, Manifest.permission.BLUETOOTH_ADMIN)
+    private val requiredPermissions: Array<String> = buildList {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            add(Manifest.permission.BLUETOOTH_CONNECT)
+            add(Manifest.permission.BLUETOOTH_SCAN)
+            add(Manifest.permission.BLUETOOTH_ADVERTISE)
+        } else {
+            add(Manifest.permission.BLUETOOTH)
+            add(Manifest.permission.BLUETOOTH_ADMIN)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            add(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }.toTypedArray()
 
     private var permissionsGranted by mutableStateOf(false)
 
-    private val permLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { results ->
-        permissionsGranted = results.values.all { it }
-    }
+    private val permLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { results ->
+            permissionsGranted = results.values.all { it }
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -52,23 +74,42 @@ class MainActivity : ComponentActivity() {
         }
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
-        permissionsGranted = permissions.all { ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED }
-        if (!permissionsGranted) permLauncher.launch(permissions)
+        permissionsGranted = requiredPermissions.all {
+            ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
+        }
+        if (!permissionsGranted) permLauncher.launch(requiredPermissions)
 
         setContent {
             val connState     by vm.connectionState.collectAsState()
             val statusMessage by vm.statusMessage.collectAsState()
             val pairedDevices by vm.pairedDevices.collectAsState()
 
-            Box(Modifier.fillMaxSize().background(XboxColors.Background).systemBarsPadding()) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .background(XboxColors.Background)
+                    .systemBarsPadding()
+            ) {
                 if (!permissionsGranted) {
-                    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+                    Column(
+                        Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
                         Text("⚠️", fontSize = 48.sp)
                         Spacer(Modifier.height(16.dp))
-                        Text("Cần quyền Bluetooth", color = XboxColors.TextPrimary, textAlign = TextAlign.Center)
+                        Text(
+                            "Cần quyền Bluetooth (và thông báo trên Android 13+) để chạy tay cầm",
+                            color = XboxColors.TextPrimary,
+                            textAlign = TextAlign.Center
+                        )
                     }
                 } else {
-                    AnimatedContent(targetState = connState, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "screen") { state ->
+                    AnimatedContent(
+                        targetState = connState,
+                        transitionSpec = { fadeIn() togetherWith fadeOut() },
+                        label = "screen"
+                    ) { state ->
                         if (state == HidConnectionState.CONNECTED) {
                             ControllerScreen(vm)
                         } else {
@@ -88,5 +129,8 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    override fun onResume() { super.onResume(); vm.refreshDevices() }
+    override fun onResume() {
+        super.onResume()
+        vm.refreshDevices()
+    }
 }
