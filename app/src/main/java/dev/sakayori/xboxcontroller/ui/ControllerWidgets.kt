@@ -139,8 +139,7 @@ fun FaceButton(
 fun DPad(
     onDirection: (direction: String, pressed: Boolean) -> Unit
 ) {
-    val directions = listOf("up", "left", "center", "right", "down")
-    val pressedSet = remember { mutableStateSetOf<String>() }
+    val pressedMap = remember { mutableStateMapOf<String, Boolean>() }
 
     fun btn(dir: String) = @Composable {
         val isCenter = dir == "center"
@@ -148,15 +147,15 @@ fun DPad(
             modifier = Modifier
                 .size(if (isCenter) 28.dp else 34.dp)
                 .clip(if (isCenter) CircleShape else RoundedCornerShape(4.dp))
-                .background(if (pressedSet.contains(dir)) XboxColors.AccentGreen else Color(0xFF1E1E2E))
+                .background(if (pressedMap[dir] == true) XboxColors.AccentGreen else Color(0xFF1E1E2E))
                 .border(1.dp, XboxColors.Border, if (isCenter) CircleShape else RoundedCornerShape(4.dp))
                 .pointerInput(dir) {
                     detectTapGestures(
                         onPress = {
-                            pressedSet.add(dir)
+                            pressedMap[dir] = true
                             onDirection(dir, true)
                             tryAwaitRelease()
-                            pressedSet.remove(dir)
+                            pressedMap[dir] = false
                             onDirection(dir, false)
                         }
                     )

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="xbox_background">#FF0A0A0F</color>
+    <color name="xbox_green">#FF107C10</color>
+    <color name="xbox_green_bright">#FF16A716</color>
+    <color name="white">#FFFFFFFF</color>
+</resources>

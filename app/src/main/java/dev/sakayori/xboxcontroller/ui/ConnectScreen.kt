@@ -63,7 +63,7 @@ fun ConnectScreen(
             }
 
             Text(
-                "Xbox 360 Controller",
+                "Xbox Wireless Controller",
                 color = XboxColors.TextPrimary,
                 fontSize = 22.sp,
                 fontWeight = FontWeight.Bold
@@ -115,7 +115,7 @@ fun ConnectScreen(
                         listOf(
                             "1. Nhấn \"Bắt đầu\" bên dưới",
                             "2. Vào Settings → Bluetooth trên Android TV",
-                            "3. Tìm \"Xbox 360 Controller\" → Pair",
+                            "3. Tìm \"Xbox Wireless Controller\" → Pair",
                             "4. Màn hình này sẽ tự đóng khi kết nối thành công"
                         ).forEach {
                             Text(it, color = XboxColors.TextMuted, fontSize = 12.sp)
