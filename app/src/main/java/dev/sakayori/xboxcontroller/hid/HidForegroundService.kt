@@ -61,7 +61,35 @@ class HidForegroundService : Service() {
             hid.statusMessage.collect { updateNotification(it) }
         }
 
+        // Lightweight haptic cues so the user feels state transitions
+        // even with the app in the background.
+        scope.launch {
+            var prev: HidConnectionState? = null
+            hid.state.collect { now ->
+                when {
+                    prev != HidConnectionState.CONNECTED && now == HidConnectionState.CONNECTED ->
+                        connectionHaptic(longPulse = true)
+                    prev == HidConnectionState.CONNECTED && now != HidConnectionState.CONNECTED ->
+                        connectionHaptic(longPulse = false)
+                    else -> {}
+                }
+                prev = now
+            }
+        }
+
         hid.start()
+    }
+
+    private fun connectionHaptic(longPulse: Boolean) {
+        val v = vibrator ?: return
+        val pattern = if (longPulse) {
+            longArrayOf(0, 30, 60, 30) // double tap = paired
+        } else {
+            longArrayOf(0, 80) // single thud = lost connection
+        }
+        runCatching {
+            v.vibrate(VibrationEffect.createWaveform(pattern, -1))
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -74,7 +102,7 @@ class HidForegroundService : Service() {
 
     override fun onDestroy() {
         hid.onRumble = null
-        hid.stop()
+        hid.release()
         HidServiceHolder.detach()
         scope.cancel()
         runCatching { vibrator?.cancel() }

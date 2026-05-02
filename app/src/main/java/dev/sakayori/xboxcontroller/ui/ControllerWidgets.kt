@@ -1,5 +1,6 @@
 package dev.sakayori.xboxcontroller.ui
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -12,6 +13,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -19,6 +21,7 @@ import androidx.compose.ui.input.pointer.PointerId
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.sqrt
@@ -28,13 +31,15 @@ import kotlin.math.sqrt
 @Composable
 fun Thumbstick(
     label: String,
-    size: Dp = 100.dp,
+    size: Dp = 120.dp,
     onMove: (x: Float, y: Float) -> Unit,
 ) {
-    val maxRadius = size.value / 2f * 0.6f
     var knobOffset by remember { mutableStateOf(Offset.Zero) }
 
-    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
         Box(
             modifier = Modifier
                 .size(size)
@@ -46,22 +51,18 @@ fun Thumbstick(
                 )
                 .border(2.dp, XboxColors.Border, CircleShape)
                 .pointerInput(Unit) {
+                    val maxRadiusPx = (this.size.width / 2f) * 0.6f
+                    val centerPx = Offset(this.size.width / 2f, this.size.height / 2f)
                     detectDragGestures(
                         onDragStart = { startOffset ->
-                            val center = Offset(size.toPx() / 2, size.toPx() / 2)
-                            val raw = startOffset - center
-                            val dist = sqrt(raw.x * raw.x + raw.y * raw.y)
-                            val capped = if (dist > maxRadius) maxRadius / dist else 1f
-                            knobOffset = raw * capped
-                            onMove(knobOffset.x / maxRadius, -knobOffset.y / maxRadius)
+                            val raw = startOffset - centerPx
+                            knobOffset = clampToRadius(raw, maxRadiusPx)
+                            onMove(knobOffset.x / maxRadiusPx, -knobOffset.y / maxRadiusPx)
                         },
                         onDrag = { change, _ ->
-                            val center = Offset(size.toPx() / 2, size.toPx() / 2)
-                            val raw = change.position - center
-                            val dist = sqrt(raw.x * raw.x + raw.y * raw.y)
-                            val capped = if (dist > maxRadius) maxRadius / dist else 1f
-                            knobOffset = raw * capped
-                            onMove(knobOffset.x / maxRadius, -knobOffset.y / maxRadius)
+                            val raw = change.position - centerPx
+                            knobOffset = clampToRadius(raw, maxRadiusPx)
+                            onMove(knobOffset.x / maxRadiusPx, -knobOffset.y / maxRadiusPx)
                         },
                         onDragEnd = {
                             knobOffset = Offset.Zero
@@ -75,23 +76,29 @@ fun Thumbstick(
                 },
             contentAlignment = Alignment.Center
         ) {
+            // Knob — offset measured in raw pixels via the offset { } lambda
+            // so it tracks the finger 1:1 regardless of screen density.
             Box(
                 modifier = Modifier
-                    .size(36.dp)
-                    .offset(
-                        x = (knobOffset.x / 3).dp,
-                        y = (knobOffset.y / 3).dp
-                    )
+                    .offset { IntOffset(knobOffset.x.toInt(), knobOffset.y.toInt()) }
+                    .size(size * 0.36f)
                     .clip(CircleShape)
                     .background(
                         Brush.radialGradient(
                             listOf(XboxColors.AccentBright, XboxColors.AccentGreen)
                         )
                     )
+                    .border(2.dp, Color.White.copy(alpha = 0.15f), CircleShape)
             )
         }
         Text(label, color = XboxColors.TextMuted, fontSize = 9.sp, letterSpacing = 1.sp)
     }
+}
+
+private fun clampToRadius(raw: Offset, maxRadius: Float): Offset {
+    val dist = sqrt(raw.x * raw.x + raw.y * raw.y)
+    if (dist <= maxRadius || dist == 0f) return raw
+    return raw * (maxRadius / dist)
 }
 
 // ── Face Buttons ──────────────────────────────────────────────────────────────
@@ -100,16 +107,21 @@ fun Thumbstick(
 fun FaceButton(
     label: String,
     color: Color,
-    size: Dp = 46.dp,
+    size: Dp = 56.dp,
     onPress: (Boolean) -> Unit,
 ) {
     var pressed by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.9f else 1f,
+        label = "face_press_scale"
+    )
 
     Box(
         modifier = Modifier
             .size(size)
+            .scale(scale)
             .clip(CircleShape)
-            .background(if (pressed) color else color.copy(alpha = 0.2f))
+            .background(if (pressed) color else color.copy(alpha = 0.22f))
             .border(2.dp, color, CircleShape)
             .pointerInput(Unit) {
                 detectTapGestures(
@@ -127,9 +139,42 @@ fun FaceButton(
         Text(
             label,
             color = if (pressed) Color.White else color,
-            fontSize = 14.sp,
+            fontSize = 16.sp,
             fontWeight = FontWeight.Bold
         )
+    }
+}
+
+// ── Xbox Guide button (the round 𝕏 in the middle) ────────────────────────────
+
+@Composable
+fun XboxGuideButton(
+    size: Dp = 48.dp,
+    onPress: (Boolean) -> Unit,
+) {
+    var pressed by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(if (pressed) 0.9f else 1f, label = "guide_scale")
+    Box(
+        modifier = Modifier
+            .size(size)
+            .scale(scale)
+            .clip(CircleShape)
+            .background(
+                Brush.radialGradient(
+                    listOf(XboxColors.AccentBright, Color(0xFF063A06))
+                )
+            )
+            .border(2.dp, XboxColors.AccentGreen, CircleShape)
+            .pointerInput(Unit) {
+                detectTapGestures(onPress = {
+                    pressed = true; onPress(true)
+                    tryAwaitRelease()
+                    pressed = false; onPress(false)
+                })
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        Text("𝕏", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -143,7 +188,6 @@ fun DPad(
 ) {
     val pressedSet = remember { mutableStateMapOf<String, Boolean>() }
 
-    /** Map a local touch position (px) inside the 3x3 grid to its zone. */
     fun zoneAt(localPx: Offset, totalPx: Float): String? {
         if (localPx.x < 0f || localPx.x >= totalPx || localPx.y < 0f || localPx.y >= totalPx) return null
         val cell = totalPx / 3f
@@ -158,7 +202,7 @@ fun DPad(
         }
     }
 
-    val cellDp = 36.dp
+    val cellDp = 40.dp
     val totalDp = cellDp * 3
     Box(
         modifier = Modifier
@@ -170,7 +214,6 @@ fun DPad(
                         val event = awaitPointerEvent()
                         val totalPx = size.width.toFloat()
 
-                        // Refresh per-pointer zone tracking.
                         for (change in event.changes) {
                             if (change.pressed) {
                                 perPointerZone[change.id] = zoneAt(change.position, totalPx)
@@ -180,7 +223,6 @@ fun DPad(
                             change.consume()
                         }
 
-                        // Dirs currently held by ANY pointer.
                         val current = perPointerZone.values.filterNotNull().toHashSet()
                         for (dir in DPadDirections) {
                             val nowPressed = dir in current
@@ -194,7 +236,6 @@ fun DPad(
                 }
             }
     ) {
-        // Visual 3x3 grid (purely cosmetic — hit testing is done above).
         Column(modifier = Modifier.matchParentSize()) {
             DPadRow(listOf(null, "up", null), pressedSet)
             DPadRow(listOf("left", "center", "right"), pressedSet)
@@ -208,9 +249,7 @@ private fun ColumnScope.DPadRow(
     cells: List<String?>,
     pressedSet: Map<String, Boolean>
 ) {
-    Row(
-        modifier = Modifier.weight(1f).fillMaxWidth()
-    ) {
+    Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
         for (cell in cells) {
             Box(
                 modifier = Modifier.weight(1f).fillMaxHeight(),
@@ -218,24 +257,29 @@ private fun ColumnScope.DPadRow(
             ) {
                 if (cell != null && cell != "center") {
                     val isPressed = pressedSet[cell] == true
+                    val cellScale by animateFloatAsState(
+                        if (isPressed) 0.9f else 1f,
+                        label = "dpad_$cell"
+                    )
                     Box(
                         modifier = Modifier
-                            .size(32.dp)
-                            .clip(RoundedCornerShape(4.dp))
+                            .size(36.dp)
+                            .scale(cellScale)
+                            .clip(RoundedCornerShape(5.dp))
                             .background(if (isPressed) XboxColors.AccentGreen else Color(0xFF1E1E2E))
-                            .border(1.dp, XboxColors.Border, RoundedCornerShape(4.dp)),
+                            .border(1.dp, XboxColors.Border, RoundedCornerShape(5.dp)),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             when (cell) { "up" -> "▲"; "down" -> "▼"; "left" -> "◀"; else -> "▶" },
                             color = XboxColors.TextPrimary,
-                            fontSize = 10.sp
+                            fontSize = 11.sp
                         )
                     }
                 } else if (cell == "center") {
                     Box(
                         modifier = Modifier
-                            .size(20.dp)
+                            .size(22.dp)
                             .clip(CircleShape)
                             .background(Color(0xFF1E1E2E))
                             .border(1.dp, XboxColors.Border, CircleShape)
@@ -247,36 +291,39 @@ private fun ColumnScope.DPadRow(
 }
 
 // ── Analog Trigger ────────────────────────────────────────────────────────────
-//
-// Tap = full press (1.0). While holding, drag the finger UP to gradually
-// release pressure (1 → 0 over ~80px). Drag back DOWN to re-engage. Lifting
-// the finger always returns to 0. This matches the feel of a real LT/RT
-// without forcing the user to fiddle for binary cases.
+// Tap = full press (1.0). While holding, slide finger UPWARD to bleed off
+// pressure (1 → 0 over ~80px). Drag back DOWN to re-engage. Lifting always
+// returns to 0.
 
 @Composable
 fun TriggerButton(
     label: String,
+    width: Dp = 72.dp,
+    height: Dp = 44.dp,
     onValue: (Float) -> Unit,
 ) {
     var fill by remember { mutableFloatStateOf(0f) }
+    val pressed = fill > 0f
+    val scale by animateFloatAsState(if (pressed) 0.97f else 1f, label = "trigger_scale")
 
     Box(
         modifier = Modifier
-            .width(60.dp)
-            .height(40.dp)
-            .clip(RoundedCornerShape(6.dp))
+            .width(width)
+            .height(height)
+            .scale(scale)
+            .clip(RoundedCornerShape(8.dp))
             .background(XboxColors.Card)
-            .border(1.5.dp, XboxColors.Border, RoundedCornerShape(6.dp))
+            .border(1.5.dp, XboxColors.Border, RoundedCornerShape(8.dp))
             .pointerInput(Unit) {
                 awaitPointerEventScope {
                     while (true) {
                         val down = awaitPointerEvent()
-                        val pressed = down.changes.firstOrNull { it.pressed } ?: continue
-                        val startId = pressed.id
-                        val startY = pressed.position.y
+                        val first = down.changes.firstOrNull { it.pressed } ?: continue
+                        val startId = first.id
+                        val startY = first.position.y
                         var v = 1f
                         fill = v; onValue(v)
-                        pressed.consume()
+                        first.consume()
 
                         var releasedNormally = false
                         while (true) {
@@ -309,16 +356,16 @@ fun TriggerButton(
                 modifier = Modifier
                     .fillMaxHeight()
                     .fillMaxWidth(fill)
-                    .clip(RoundedCornerShape(6.dp))
+                    .clip(RoundedCornerShape(8.dp))
                     .background(XboxColors.AccentGreen.copy(alpha = 0.6f))
                     .align(Alignment.CenterStart)
             )
         }
-        Text(label, color = XboxColors.TextPrimary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+        Text(label, color = XboxColors.TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
     }
 }
 
-// ── Small button (Back/Start/Guide) ──────────────────────────────────────────
+// ── Small button (Back/Start/LB/RB/LS-click/RS-click) ───────────────────────
 
 @Composable
 fun SmallButton(
@@ -326,12 +373,14 @@ fun SmallButton(
     onPress: (Boolean) -> Unit,
 ) {
     var pressed by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(if (pressed) 0.93f else 1f, label = "small_scale")
     Box(
         modifier = Modifier
-            .clip(RoundedCornerShape(6.dp))
+            .scale(scale)
+            .clip(RoundedCornerShape(8.dp))
             .background(if (pressed) XboxColors.AccentGreen else XboxColors.Card)
-            .border(1.dp, XboxColors.Border, RoundedCornerShape(6.dp))
-            .padding(horizontal = 12.dp, vertical = 6.dp)
+            .border(1.dp, XboxColors.Border, RoundedCornerShape(8.dp))
+            .padding(horizontal = 14.dp, vertical = 8.dp)
             .pointerInput(Unit) {
                 detectTapGestures(onPress = {
                     pressed = true; onPress(true)
@@ -340,6 +389,11 @@ fun SmallButton(
                 })
             }
     ) {
-        Text(label, color = XboxColors.TextMuted, fontSize = 10.sp)
+        Text(
+            label,
+            color = if (pressed) Color.White else XboxColors.TextMuted,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Medium
+        )
     }
 }

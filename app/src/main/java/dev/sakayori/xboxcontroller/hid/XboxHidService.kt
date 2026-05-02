@@ -3,8 +3,16 @@ package dev.sakayori.xboxcontroller.hid
 import android.annotation.SuppressLint
 import android.bluetooth.*
 import android.content.Context
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 
 enum class HidConnectionState { IDLE, REGISTERING, WAITING_PAIR, CONNECTED, ERROR }
 
@@ -33,6 +41,8 @@ class XboxHidService(private val context: Context) {
     private var hidDevice: BluetoothHidDevice? = null
     private var connectedHost: BluetoothDevice? = null
     private var originalAdapterName: String? = null
+    private var reconnectJob: Job? = null
+    private val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private val _state = MutableStateFlow(HidConnectionState.IDLE)
     val state: StateFlow<HidConnectionState> = _state
@@ -80,15 +90,18 @@ class XboxHidService(private val context: Context) {
             when (state) {
                 BluetoothProfile.STATE_CONNECTED -> {
                     connectedHost = device
+                    reconnectJob?.cancel()
                     _state.value = HidConnectionState.CONNECTED
                     val deviceLabel = device.name?.takeIf { it.isNotBlank() } ?: "TV"
                     _statusMessage.value = "Đã kết nối với $deviceLabel"
                 }
                 BluetoothProfile.STATE_DISCONNECTED -> {
-                    if (connectedHost?.address == device.address) {
+                    if (connectedHost?.address == device.address || connectedHost == null) {
+                        val wasHost = connectedHost ?: device
                         connectedHost = null
                         _state.value = HidConnectionState.WAITING_PAIR
                         _statusMessage.value = MSG_DISCONNECTED
+                        scheduleReconnect(wasHost)
                     }
                 }
                 BluetoothProfile.STATE_CONNECTING -> {
@@ -182,6 +195,8 @@ class XboxHidService(private val context: Context) {
     }
 
     fun stop() {
+        reconnectJob?.cancel()
+        reconnectJob = null
         runCatching { hidDevice?.unregisterApp() }
         runCatching { btAdapter?.closeProfileProxy(BluetoothProfile.HID_DEVICE, hidDevice) }
         hidDevice = null
@@ -189,6 +204,31 @@ class XboxHidService(private val context: Context) {
         restoreAdapterName()
         _state.value = HidConnectionState.IDLE
         _statusMessage.value = MSG_IDLE
+    }
+
+    /**
+     * Try to re-attach to the host that just dropped, with exponential
+     * backoff up to 30s. Cancelled when the user explicitly stops.
+     */
+    private fun scheduleReconnect(device: BluetoothDevice) {
+        reconnectJob?.cancel()
+        reconnectJob = ioScope.launch {
+            var delayMs = 2_000L
+            while (isActive) {
+                delay(delayMs)
+                if (_state.value == HidConnectionState.CONNECTED ||
+                    _state.value == HidConnectionState.IDLE
+                ) return@launch
+                runCatching { hidDevice?.connect(device) }
+                _statusMessage.value = "Đang thử kết nối lại với ${device.name ?: "TV"}…"
+                delayMs = (delayMs * 2).coerceAtMost(30_000L)
+            }
+        }
+    }
+
+    fun release() {
+        stop()
+        runCatching { ioScope.cancel() }
     }
 
     fun connectTo(device: BluetoothDevice) {
