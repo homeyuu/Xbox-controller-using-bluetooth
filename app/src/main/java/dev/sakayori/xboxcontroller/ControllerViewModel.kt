@@ -70,6 +70,12 @@ class ControllerViewModel(app: Application) : AndroidViewModel(app) {
         if (pressed) lightHaptic()
     }
 
+    fun onDpad(direction: String, pressed: Boolean) {
+        gamepad.setDpad(direction, pressed)
+        send()
+        if (pressed) lightHaptic()
+    }
+
     fun onLeftStick(x: Float, y: Float) {
         val cx = applyStickShape(x); val cy = applyStickShape(y)
         gamepad.lx = (cx * Short.MAX_VALUE).toInt()

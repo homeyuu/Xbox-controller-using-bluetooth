@@ -107,7 +107,7 @@ private fun clampToRadius(raw: Offset, maxRadius: Float): Offset {
 fun FaceButton(
     label: String,
     color: Color,
-    size: Dp = 56.dp,
+    size: Dp = 66.dp,
     onPress: (Boolean) -> Unit,
 ) {
     var pressed by remember { mutableStateOf(false) }
@@ -122,7 +122,7 @@ fun FaceButton(
             .scale(scale)
             .clip(CircleShape)
             .background(if (pressed) color else color.copy(alpha = 0.22f))
-            .border(2.dp, color, CircleShape)
+            .border(2.5.dp, color, CircleShape)
             .pointerInput(Unit) {
                 detectTapGestures(
                     onPress = {
@@ -139,7 +139,7 @@ fun FaceButton(
         Text(
             label,
             color = if (pressed) Color.White else color,
-            fontSize = 16.sp,
+            fontSize = 19.sp,
             fontWeight = FontWeight.Bold
         )
     }
@@ -202,7 +202,7 @@ fun DPad(
         }
     }
 
-    val cellDp = 40.dp
+    val cellDp = 44.dp
     val totalDp = cellDp * 3
     Box(
         modifier = Modifier
@@ -263,23 +263,23 @@ private fun ColumnScope.DPadRow(
                     )
                     Box(
                         modifier = Modifier
-                            .size(36.dp)
+                            .size(40.dp)
                             .scale(cellScale)
-                            .clip(RoundedCornerShape(5.dp))
+                            .clip(RoundedCornerShape(6.dp))
                             .background(if (isPressed) XboxColors.AccentGreen else Color(0xFF1E1E2E))
-                            .border(1.dp, XboxColors.Border, RoundedCornerShape(5.dp)),
+                            .border(1.dp, XboxColors.Border, RoundedCornerShape(6.dp)),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             when (cell) { "up" -> "▲"; "down" -> "▼"; "left" -> "◀"; else -> "▶" },
                             color = XboxColors.TextPrimary,
-                            fontSize = 11.sp
+                            fontSize = 13.sp
                         )
                     }
                 } else if (cell == "center") {
                     Box(
                         modifier = Modifier
-                            .size(22.dp)
+                            .size(26.dp)
                             .clip(CircleShape)
                             .background(Color(0xFF1E1E2E))
                             .border(1.dp, XboxColors.Border, CircleShape)
@@ -298,8 +298,8 @@ private fun ColumnScope.DPadRow(
 @Composable
 fun TriggerButton(
     label: String,
-    width: Dp = 72.dp,
-    height: Dp = 44.dp,
+    width: Dp = 84.dp,
+    height: Dp = 52.dp,
     onValue: (Float) -> Unit,
 ) {
     var fill by remember { mutableFloatStateOf(0f) }
@@ -361,7 +361,7 @@ fun TriggerButton(
                     .align(Alignment.CenterStart)
             )
         }
-        Text(label, color = XboxColors.TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        Text(label, color = XboxColors.TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -377,10 +377,10 @@ fun SmallButton(
     Box(
         modifier = Modifier
             .scale(scale)
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(10.dp))
             .background(if (pressed) XboxColors.AccentGreen else XboxColors.Card)
-            .border(1.dp, XboxColors.Border, RoundedCornerShape(8.dp))
-            .padding(horizontal = 14.dp, vertical = 8.dp)
+            .border(1.dp, XboxColors.Border, RoundedCornerShape(10.dp))
+            .padding(horizontal = 18.dp, vertical = 11.dp)
             .pointerInput(Unit) {
                 detectTapGestures(onPress = {
                     pressed = true; onPress(true)
@@ -392,7 +392,7 @@ fun SmallButton(
         Text(
             label,
             color = if (pressed) Color.White else XboxColors.TextMuted,
-            fontSize = 11.sp,
+            fontSize = 13.sp,
             fontWeight = FontWeight.Medium
         )
     }
