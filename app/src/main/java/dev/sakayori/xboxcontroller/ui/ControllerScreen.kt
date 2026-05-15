@@ -15,7 +15,7 @@ fun ControllerScreen(vm: ControllerViewModel) {
         modifier = Modifier
             .fillMaxSize()
             .background(XboxColors.Background)
-            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .padding(horizontal = 20.dp, vertical = 14.dp)
     ) {
         // ── Top bar: shoulders + center cluster ─────────────────────────────
         Row(
@@ -28,7 +28,7 @@ fun ControllerScreen(vm: ControllerViewModel) {
             // Left shoulder
             Column(
                 horizontalAlignment = Alignment.Start,
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 TriggerButton("LT") { vm.onLeftTrigger(it) }
                 SmallButton("LB") { vm.onButton(Button.LB, it) }
@@ -37,18 +37,18 @@ fun ControllerScreen(vm: ControllerViewModel) {
             // Center cluster: Back / Xbox / Start
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
                 modifier = Modifier.padding(top = 4.dp)
             ) {
                 SmallButton("◀ Back") { vm.onButton(Button.BACK, it) }
-                XboxGuideButton { vm.onButton(Button.GUIDE, it) }
+                XboxGuideButton(size = 56.dp) { vm.onButton(Button.GUIDE, it) }
                 SmallButton("Start ▶") { vm.onButton(Button.START, it) }
             }
 
             // Right shoulder
             Column(
                 horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 TriggerButton("RT") { vm.onRightTrigger(it) }
                 SmallButton("RB") { vm.onButton(Button.RB, it) }
@@ -59,50 +59,50 @@ fun ControllerScreen(vm: ControllerViewModel) {
         Column(
             modifier = Modifier
                 .align(Alignment.CenterStart)
-                .padding(top = 90.dp, bottom = 50.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp),
+                .padding(top = 96.dp, bottom = 50.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Thumbstick(label = "LS", size = 130.dp) { x, y -> vm.onLeftStick(x, y) }
-            DPad { dir, pressed ->
-                val bit = when (dir) {
-                    "up"    -> Button.DPAD_UP
-                    "down"  -> Button.DPAD_DOWN
-                    "left"  -> Button.DPAD_LEFT
-                    "right" -> Button.DPAD_RIGHT
-                    else    -> return@DPad
-                }
-                vm.onButton(bit, pressed)
-            }
+            Thumbstick(label = "LS", size = 140.dp) { x, y -> vm.onLeftStick(x, y) }
+            DPad { dir, pressed -> vm.onDpad(dir, pressed) }
         }
 
         // ── Right side: ABXY (top) + RS (bottom) ────────────────────────────
         Column(
             modifier = Modifier
                 .align(Alignment.CenterEnd)
-                .padding(top = 90.dp, bottom = 50.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp),
+                .padding(top = 96.dp, bottom = 50.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // ABXY diamond (130dp box, 56dp buttons)
+            // ABXY diamond — bigger box (180dp) + bigger buttons (66dp) so
+            // they're well-spaced and easier to hit.
             Box(
-                modifier = Modifier.size(140.dp),
+                modifier = Modifier.size(180.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Box(Modifier.align(Alignment.TopCenter)) {
-                    FaceButton("Y", XboxColors.ButtonY) { vm.onButton(Button.Y, it) }
+                    FaceButton("Y", XboxColors.ButtonY, size = 66.dp) {
+                        vm.onButton(Button.Y, it)
+                    }
                 }
                 Box(Modifier.align(Alignment.CenterStart)) {
-                    FaceButton("X", XboxColors.ButtonX) { vm.onButton(Button.X, it) }
+                    FaceButton("X", XboxColors.ButtonX, size = 66.dp) {
+                        vm.onButton(Button.X, it)
+                    }
                 }
                 Box(Modifier.align(Alignment.CenterEnd)) {
-                    FaceButton("B", XboxColors.ButtonB) { vm.onButton(Button.B, it) }
+                    FaceButton("B", XboxColors.ButtonB, size = 66.dp) {
+                        vm.onButton(Button.B, it)
+                    }
                 }
                 Box(Modifier.align(Alignment.BottomCenter)) {
-                    FaceButton("A", XboxColors.ButtonA) { vm.onButton(Button.A, it) }
+                    FaceButton("A", XboxColors.ButtonA, size = 66.dp) {
+                        vm.onButton(Button.A, it)
+                    }
                 }
             }
-            Thumbstick(label = "RS", size = 130.dp) { x, y -> vm.onRightStick(x, y) }
+            Thumbstick(label = "RS", size = 140.dp) { x, y -> vm.onRightStick(x, y) }
         }
 
         // ── Bottom strip: LS / RS click ─────────────────────────────────────
